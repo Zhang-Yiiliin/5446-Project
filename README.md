@@ -11,7 +11,12 @@ CS5446 AI Planning and Decision Making
 
 5. Noisy DQN
 
-example usage:
+example usage:\
+train agent play cartpole game with vanilla dqn
 ```
-python main.py dqn cartpole
+python train.py dqn cartpole
+```
+evaluate the result
+```
+python evaluate.py dqn cartpole
 ```

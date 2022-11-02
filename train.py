@@ -91,7 +91,7 @@ def main():
     if not os.path.exists(f"results/{dqn_type}_{game}"):
         os.mkdir(f"results/{dqn_type}_{game}")
     plot(losses, rewards, f"results/{dqn_type}_{game}/reward_and_loss.png")
-    torch.save(model.state_dict, f'results/{dqn_type}_{game}/model.pt')
+    torch.save(model.state_dict(), f'results/{dqn_type}_{game}/model.pt')
     np.savez(f"results/{dqn_type}_{game}/loss_and_reward.npz", loss=losses, reward=rewards)
 
 if __name__ == "__main__":
