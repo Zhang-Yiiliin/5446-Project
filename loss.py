@@ -1,0 +1,26 @@
+import torch
+import numpy as np
+
+def td_loss(batch_size, gamma, model, buffer, optimizer):
+    state, action, reward, next_state, done = buffer.sample(batch_size)
+
+    state      = torch.FloatTensor(np.float32(state))
+    next_state = torch.FloatTensor(np.float32(next_state))
+    action     = torch.LongTensor(action)
+    reward     = torch.FloatTensor(reward)
+    done       = torch.FloatTensor(done)
+
+    q_values      = model(state).cpu()
+    next_q_values = model(next_state).cpu()
+
+    q_value          = q_values.gather(1, action.unsqueeze(1)).squeeze(1) # get q_value indexed by action
+    next_q_value     = next_q_values.max(1)[0]
+    expected_q_value = reward + gamma * next_q_value * (1 - done) # if done = 1, no next state
+    
+    loss = (q_value - expected_q_value.data).pow(2).mean()
+
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    return loss.detach()
