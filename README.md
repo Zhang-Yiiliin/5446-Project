@@ -10,3 +10,8 @@ CS5446 AI Planning and Decision Making
 4. Prioritized DQN
 
 5. Noisy DQN
+
+example usage:
+```
+python main.py dqn cartpole
+```
