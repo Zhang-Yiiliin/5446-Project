@@ -11,6 +11,11 @@ CS5446 AI Planning and Decision Making
 
 5. Noisy DQN
 
+**install requirements**
+```
+python -m pip install -r requirements.txt
+```
+
 **example usage:**
 
 train agent play cartpole game with vanilla dqn
