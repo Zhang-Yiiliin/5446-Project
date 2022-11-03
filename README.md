@@ -29,6 +29,6 @@ python evaluate.py dqn cartpole
 
 **other choices**
 
-dqn_type = [dqn, double, dueling, prioritize, noisy]
+dqn_type = [dqn, double, dueling, prioritized, noisy]
 
 game = [cartpole, pong, breakout]

@@ -45,9 +45,9 @@ def train(env, num_frames, batch_size, train_initial, gamma, epsilon_func, model
         if len(buffer) >= train_initial:
             # start training after collected enough samples
             if tmodel:
-                loss = loss_func(batch_size, gamma, model, tmodel, buffer, optimizer)
+                loss = loss_func(num_frames, batch_size, gamma, model, tmodel, buffer, optimizer)
             else:
-                loss = loss_func(batch_size, gamma, model, buffer, optimizer)
+                loss = loss_func(num_frames, batch_size, gamma, model, buffer, optimizer)
             losses.append(loss.detach().item())
 
         if num_frames % 1000 == 0 and tmodel:
@@ -89,20 +89,29 @@ def main():
             tmodel = None
             if torch.cuda.is_available():
                 model = model.cuda()
+            replay_buffer = Buffer(buffer_size)
         elif dqn_type == "double":
             model, tmodel = Model(env.observation_space.shape, env.action_space.n), Model(env.observation_space.shape, env.action_space.n)
             tmodel.load_state_dict(model.state_dict())
             if torch.cuda.is_available():
                 model, tmodel = model.cuda(), tmodel.cuda()
+            replay_buffer = Buffer(buffer_size)
         elif dqn_type == "dueling":
             # use double td_loss train dueling dqn
             model, tmodel = Model(env.observation_space.shape, env.action_space.n), Model(env.observation_space.shape, env.action_space.n)
             tmodel.load_state_dict(model.state_dict())
             if torch.cuda.is_available():
                 model, tmodel = model.cuda(), tmodel.cuda()
+            replay_buffer = Buffer(buffer_size)
+        elif dqn_type == "prioritized":
+            model, tmodel = Model(env.observation_space.shape, env.action_space.n), Model(env.observation_space.shape, env.action_space.n)
+            tmodel.load_state_dict(model.state_dict())
+            if torch.cuda.is_available():
+                model, tmodel = model.cuda(), tmodel.cuda()
+            beta_func = lambda frame_idx: min(1.0, 0.4 + frame_idx * (1.0 - 0.4) / 100000)
+            replay_buffer = Buffer(buffer_size, beta_func)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
-    replay_buffer = Buffer(buffer_size)
 
     losses, rewards = train(env, num_frames, batch_size, train_initial, gamma, epsilon_func, model, tmodel, replay_buffer, optimizer, loss_func)
     losses, rewards = np.array(losses), np.array(rewards)
