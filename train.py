@@ -5,7 +5,7 @@ import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import os
+import os, sys
 
 from wrappers import make_atari, wrap_deepmind, wrap_pytorch
 from hyperparameters import get_hyperparameters
@@ -18,7 +18,7 @@ def parse_input():
     return args.dqn_type, args.game
 
 
-def train(env, num_frames, batch_size, train_initial, gamma, epsilon_func, model, buffer, optimizer, loss_func):
+def train(env, num_frames, batch_size, train_initial, gamma, epsilon_func, model, tmodel, buffer, optimizer, loss_func):
     losses = []
     all_rewards = []
 
@@ -44,8 +44,14 @@ def train(env, num_frames, batch_size, train_initial, gamma, epsilon_func, model
   
         if len(buffer) >= train_initial:
             # start training after collected enough samples
-            loss = loss_func(batch_size, gamma, model, buffer, optimizer)
+            if tmodel:
+                loss = loss_func(batch_size, gamma, model, tmodel, buffer, optimizer)
+            else:
+                loss = loss_func(batch_size, gamma, model, buffer, optimizer)
             losses.append(loss.detach().item())
+
+        if num_frames % 1000 == 0:
+            tmodel.load_state_dict(model.state_dict())
 
     return losses, all_rewards
 
@@ -65,28 +71,33 @@ def main():
     dqn_type, game = parse_input()
     Model, Buffer, epsilon_func, loss_func, num_frames, gamma, batch_size, lr, buffer_size, train_initial = get_hyperparameters(dqn_type, game)
     if game == "cartpole":
+        # demo
         env = gym.make("CartPole-v1")
         model = Model(env.observation_space.shape[0], env.action_space.n)
-        optimizer = optim.Adam(model.parameters(), lr=lr)
-        replay_buffer = Buffer(buffer_size)
+    else:
+        # select game
+        if game == "pong":
+            env = wrap_pytorch(wrap_deepmind(make_atari("PongNoFrameskip-v4")))
+        elif game == "breakout":
+            env = wrap_pytorch(wrap_deepmind(make_atari("BreakoutNoFrameskip-v4")))
+        else:
+            print(f"{game} not supported", file=sys.stderr)
+        # select model
+        if dqn_type == "dqn":
+            model = Model(env.observation_space.shape, env.action_space.n)
+            tmodel = None
+            if torch.cuda.is_available():
+                model = model.cuda()
+        elif dqn_type == "double":
+            model, tmodel = Model(env.observation_space.shape, env.action_space.n), Model(env.observation_space.shape, env.action_space.n)
+            tmodel.load_state_dict(model.state_dict())
+            if torch.cuda.is_available():
+                model, tmodel = model.cuda(), tmodel.cuda()
 
-    elif game == "pong" and dqn_type == "dqn":
-        env = wrap_pytorch(wrap_deepmind(make_atari("PongNoFrameskip-v4")))
-        model = Model(env.observation_space.shape, env.action_space.n)
-        if torch.cuda.is_available():
-            model = model.cuda()
-        optimizer = optim.Adam(model.parameters(), lr=lr)
-        replay_buffer = Buffer(buffer_size)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    replay_buffer = Buffer(buffer_size)
 
-    elif game == "breakout" and dqn_type == "dqn":
-        env = wrap_pytorch(wrap_deepmind(make_atari("BreakoutNoFrameskip-v4")))
-        model = Model(env.observation_space.shape, env.action_space.n)
-        if torch.cuda.is_available():
-            model = model.cuda()
-        optimizer = optim.Adam(model.parameters(), lr=lr)
-        replay_buffer = Buffer(buffer_size)
-
-    losses, rewards = train(env, num_frames, batch_size, train_initial, gamma, epsilon_func, model, replay_buffer, optimizer, loss_func)
+    losses, rewards = train(env, num_frames, batch_size, train_initial, gamma, epsilon_func, model, tmodel, replay_buffer, optimizer, loss_func)
     losses, rewards = np.array(losses), np.array(rewards)
 
     # save result

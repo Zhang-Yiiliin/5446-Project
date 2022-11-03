@@ -3,7 +3,7 @@ import math
 from models.mlp import MLP_DQN
 from models.cnn import CNN_DQN
 from replaybuffer.randombuffer import RandomBuffer
-from loss import td_loss
+from loss import td_loss, double_td_loss
 
 def get_hyperparameters(dqn_type, game):
     """
@@ -26,7 +26,7 @@ def get_hyperparameters(dqn_type, game):
         Buffer = RandomBuffer
         epsilon_func = lambda x: max(1. * (0.999 ** (x // 500)), 0.01)
         loss_func = td_loss
-        num_frames = 1500000
+        num_frames = 1000000
         gamma = 0.99
         batch_size = 32
         lr = 0.00001
@@ -38,6 +38,30 @@ def get_hyperparameters(dqn_type, game):
         Buffer = RandomBuffer
         epsilon_func = lambda x: max(1. * (0.999 ** (x // 500)), 0.01)
         loss_func = td_loss
+        num_frames = 3000000
+        gamma = 0.99
+        batch_size = 32
+        lr = 0.00001
+        buffer_size = 100000
+        train_initial = 10000
+        return Model, Buffer, epsilon_func, loss_func, num_frames, gamma, batch_size, lr, buffer_size, train_initial
+    elif dqn_type == "double" and game == "pong":
+        Model = CNN_DQN
+        Buffer = RandomBuffer
+        epsilon_func = lambda x: max(1. * (0.999 ** (x // 500)), 0.01)
+        loss_func = double_td_loss
+        num_frames = 1000000
+        gamma = 0.99
+        batch_size = 32
+        lr = 0.00001
+        buffer_size = 100000
+        train_initial = 10000
+        return Model, Buffer, epsilon_func, loss_func, num_frames, gamma, batch_size, lr, buffer_size, train_initial
+    elif dqn_type == "double" and game == "breakout":
+        Model = CNN_DQN
+        Buffer = RandomBuffer
+        epsilon_func = lambda x: max(1. * (0.999 ** (x // 500)), 0.01)
+        loss_func = double_td_loss
         num_frames = 3000000
         gamma = 0.99
         batch_size = 32
