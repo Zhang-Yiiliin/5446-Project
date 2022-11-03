@@ -50,7 +50,7 @@ def train(env, num_frames, batch_size, train_initial, gamma, epsilon_func, model
                 loss = loss_func(batch_size, gamma, model, buffer, optimizer)
             losses.append(loss.detach().item())
 
-        if num_frames % 1000 == 0:
+        if num_frames % 1000 == 0 and tmodel:
             tmodel.load_state_dict(model.state_dict())
 
     return losses, all_rewards
@@ -74,6 +74,7 @@ def main():
         # demo
         env = gym.make("CartPole-v1")
         model = Model(env.observation_space.shape[0], env.action_space.n)
+        tmodel = None
     else:
         # select game
         if game == "pong":
@@ -89,6 +90,12 @@ def main():
             if torch.cuda.is_available():
                 model = model.cuda()
         elif dqn_type == "double":
+            model, tmodel = Model(env.observation_space.shape, env.action_space.n), Model(env.observation_space.shape, env.action_space.n)
+            tmodel.load_state_dict(model.state_dict())
+            if torch.cuda.is_available():
+                model, tmodel = model.cuda(), tmodel.cuda()
+        elif dqn_type == "dueling":
+            # use double td_loss train dueling dqn
             model, tmodel = Model(env.observation_space.shape, env.action_space.n), Model(env.observation_space.shape, env.action_space.n)
             tmodel.load_state_dict(model.state_dict())
             if torch.cuda.is_available():
