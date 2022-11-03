@@ -39,6 +39,8 @@ class CNN_DQN(nn.Module):
     def act(self, state, epsilon):
         if random.random() > epsilon:
             state   = torch.FloatTensor(np.float32(state)).unsqueeze(0)
+            if torch.cuda.is_available():
+                state = state.cuda()
             q_value = self.forward(state)
             action  = q_value.max(1)[1].data[0]
         else:

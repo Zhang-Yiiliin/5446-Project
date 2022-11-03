@@ -10,8 +10,11 @@ def td_loss(batch_size, gamma, model, buffer, optimizer):
     reward     = torch.FloatTensor(reward)
     done       = torch.FloatTensor(done)
 
-    q_values      = model(state).cpu()
-    next_q_values = model(next_state).cpu()
+    if torch.cuda.is_available():
+        state, next_state, action, reward, done = state.cuda(), next_state.cuda(), action.cuda(), reward.cuda(), done.cuda()
+
+    q_values      = model(state)
+    next_q_values = model(next_state)
 
     q_value          = q_values.gather(1, action.unsqueeze(1)).squeeze(1) # get q_value indexed by action
     next_q_value     = next_q_values.max(1)[0]

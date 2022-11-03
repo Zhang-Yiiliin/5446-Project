@@ -9,8 +9,6 @@ import os
 
 from wrappers import make_atari, wrap_deepmind, wrap_pytorch
 from hyperparameters import get_hyperparameters
-from loss import td_loss
-
 
 def parse_input():
     parser = argparse.ArgumentParser()
@@ -75,12 +73,16 @@ def main():
     elif game == "pong" and dqn_type == "dqn":
         env = wrap_pytorch(wrap_deepmind(make_atari("PongNoFrameskip-v4")))
         model = Model(env.observation_space.shape, env.action_space.n)
+        if torch.cuda.is_available():
+            model = model.cuda()
         optimizer = optim.Adam(model.parameters(), lr=lr)
         replay_buffer = Buffer(buffer_size)
 
     elif game == "breakout" and dqn_type == "dqn":
         env = wrap_pytorch(wrap_deepmind(make_atari("BreakoutNoFrameskip-v4")))
         model = Model(env.observation_space.shape, env.action_space.n)
+        if torch.cuda.is_available():
+            model = model.cuda()
         optimizer = optim.Adam(model.parameters(), lr=lr)
         replay_buffer = Buffer(buffer_size)
 
