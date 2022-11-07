@@ -26,7 +26,10 @@ evaluate the result
 ```
 python evaluate.py dqn cartpole
 ```
-
+generate playing game gif
+```
+python play.py dqn pong
+```
 **other choices**
 
 dqn_type = [dqn, double, dueling, prioritized, noisy]

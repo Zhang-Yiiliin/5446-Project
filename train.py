@@ -18,7 +18,7 @@ def parse_input():
     return args.dqn_type, args.game
 
 
-def train(env, num_frames, batch_size, train_initial, gamma, epsilon_func, model, tmodel, buffer, optimizer, loss_func):
+def train(dqn_type, game, env, num_frames, batch_size, train_initial, gamma, epsilon_func, model, tmodel, buffer, optimizer, loss_func):
     losses = []
     all_rewards = []
 
@@ -52,6 +52,11 @@ def train(env, num_frames, batch_size, train_initial, gamma, epsilon_func, model
 
         if num_frames % 1000 == 0 and tmodel:
             tmodel.load_state_dict(model.state_dict())
+
+        if num_frames % 50000 == 0:
+            if not os.path.exists(f"modelstats/{dqn_type}_{game}"):
+                os.mkdir(f"modelstats/{dqn_type}_{game}")
+            torch.save(model.state_dict(), f'modelstats/{dqn_type}_{game}/{game}_{num_frames}_frame_{dqn_type}.pt')
 
     return losses, all_rewards
 
@@ -113,7 +118,7 @@ def main():
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
-    losses, rewards = train(env, num_frames, batch_size, train_initial, gamma, epsilon_func, model, tmodel, replay_buffer, optimizer, loss_func)
+    losses, rewards = train(dqn_type, game, env, num_frames, batch_size, train_initial, gamma, epsilon_func, model, tmodel, replay_buffer, optimizer, loss_func)
     losses, rewards = np.array(losses), np.array(rewards)
 
     # save result
