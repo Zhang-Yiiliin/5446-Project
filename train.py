@@ -18,16 +18,19 @@ def parse_input():
     return args.dqn_type, args.game
 
 
-def train(dqn_type, game, env, num_frames, batch_size, train_initial, gamma, epsilon_func, model, tmodel, buffer, optimizer, loss_func):
+def train(env, model, tmodel, buffer, optimizer, hyperparameters):
     losses = []
     all_rewards = []
 
     episode_reward = 0
     state, _ = env.reset()
-    for frame_idx in tqdm(range(1, num_frames + 1)):
+    for frame_idx in tqdm(range(1, hyperparameters["num_frames"] + 1)):
         # select an action
-        epsilon = epsilon_func(frame_idx)
-        action = model.act(state, epsilon)
+        if hyperparameters["dqn_type"] != "noisy":
+            epsilon = hyperparameters["epsilon_func"](frame_idx)
+            action = model.act(state, epsilon)
+        else:
+            action = model.act(state)
     
         # save transition into buffer
         next_state, reward, done, _, _ = env.step(action)
@@ -42,21 +45,22 @@ def train(dqn_type, game, env, num_frames, batch_size, train_initial, gamma, eps
             all_rewards.append(episode_reward)
             episode_reward = 0
   
-        if len(buffer) >= train_initial:
+        if len(buffer) >= hyperparameters["train_initial"]:
             # start training after collected enough samples
             if tmodel:
-                loss = loss_func(num_frames, batch_size, gamma, model, tmodel, buffer, optimizer)
+                loss = hyperparameters["loss_func"](hyperparameters["num_frames"], hyperparameters["batch_size"], hyperparameters["gamma"], model, tmodel, buffer, optimizer)
             else:
-                loss = loss_func(num_frames, batch_size, gamma, model, buffer, optimizer)
+                loss = hyperparameters["loss_func"](hyperparameters["num_frames"], hyperparameters["batch_size"], hyperparameters["gamma"], model, buffer, optimizer)
             losses.append(loss.detach().item())
 
-        if num_frames % 1000 == 0 and tmodel:
+        if frame_idx % 1000 == 0 and tmodel:
             tmodel.load_state_dict(model.state_dict())
 
-        if num_frames % 50000 == 0:
+        if frame_idx % 50000 == 0:
+            dqn_type, game = hyperparameters["dqn_type"], hyperparameters["game"]
             if not os.path.exists(f"modelstats/{dqn_type}_{game}"):
                 os.mkdir(f"modelstats/{dqn_type}_{game}")
-            torch.save(model.state_dict(), f'modelstats/{dqn_type}_{game}/{game}_{num_frames}_frame_{dqn_type}.pt')
+            torch.save(model.state_dict(), f'modelstats/{dqn_type}_{game}/{game}_{frame_idx}_frame_{dqn_type}.pt')
 
     return losses, all_rewards
 
@@ -74,11 +78,11 @@ def plot(losses, rewards, path):
 
 def main():
     dqn_type, game = parse_input()
-    Model, Buffer, epsilon_func, loss_func, num_frames, gamma, batch_size, lr, buffer_size, train_initial = get_hyperparameters(dqn_type, game)
+    hyperparameters = get_hyperparameters(dqn_type, game)
     if game == "cartpole":
         # demo
         env = gym.make("CartPole-v1")
-        model = Model(env.observation_space.shape[0], env.action_space.n)
+        model = hyperparameters["Model"](env.observation_space.shape[0], env.action_space.n)
         tmodel = None
     else:
         # select game
@@ -90,35 +94,41 @@ def main():
             print(f"{game} not supported", file=sys.stderr)
         # select model
         if dqn_type == "dqn":
-            model = Model(env.observation_space.shape, env.action_space.n)
+            model = hyperparameters["Model"](env.observation_space.shape, env.action_space.n)
             tmodel = None
             if torch.cuda.is_available():
                 model = model.cuda()
-            replay_buffer = Buffer(buffer_size)
+            replay_buffer = hyperparameters["Buffer"](hyperparameters["buffer_size"])
         elif dqn_type == "double":
-            model, tmodel = Model(env.observation_space.shape, env.action_space.n), Model(env.observation_space.shape, env.action_space.n)
+            model, tmodel = hyperparameters["Model"](env.observation_space.shape, env.action_space.n), hyperparameters["Model"](env.observation_space.shape, env.action_space.n)
             tmodel.load_state_dict(model.state_dict())
             if torch.cuda.is_available():
                 model, tmodel = model.cuda(), tmodel.cuda()
-            replay_buffer = Buffer(buffer_size)
+            replay_buffer = hyperparameters["Buffer"](hyperparameters["buffer_size"])
         elif dqn_type == "dueling":
             # use double td_loss train dueling dqn
-            model, tmodel = Model(env.observation_space.shape, env.action_space.n), Model(env.observation_space.shape, env.action_space.n)
+            model, tmodel = hyperparameters["Model"](env.observation_space.shape, env.action_space.n), hyperparameters["Model"](env.observation_space.shape, env.action_space.n)
             tmodel.load_state_dict(model.state_dict())
             if torch.cuda.is_available():
                 model, tmodel = model.cuda(), tmodel.cuda()
-            replay_buffer = Buffer(buffer_size)
+            replay_buffer = hyperparameters["Buffer"](hyperparameters["buffer_size"])
         elif dqn_type == "prioritized":
-            model, tmodel = Model(env.observation_space.shape, env.action_space.n), Model(env.observation_space.shape, env.action_space.n)
+            model, tmodel = hyperparameters["Model"](env.observation_space.shape, env.action_space.n), hyperparameters["Model"](env.observation_space.shape, env.action_space.n)
             tmodel.load_state_dict(model.state_dict())
             if torch.cuda.is_available():
                 model, tmodel = model.cuda(), tmodel.cuda()
-            beta_func = lambda frame_idx: min(1.0, 0.4 + frame_idx * (1.0 - 0.4) / 100000)
-            replay_buffer = Buffer(buffer_size, beta_func)
+            replay_buffer = hyperparameters["Buffer"](hyperparameters["buffer_size"], hyperparameters["beta_func"])
+        elif dqn_type == "noisy":
+            # use double td_loss train dueling dqn
+            model, tmodel = hyperparameters["Model"](env.observation_space.shape, env.action_space.n), hyperparameters["Model"](env.observation_space.shape, env.action_space.n)
+            tmodel.load_state_dict(model.state_dict())
+            if torch.cuda.is_available():
+                model, tmodel = model.cuda(), tmodel.cuda()
+            replay_buffer = hyperparameters["Buffer"](hyperparameters["buffer_size"])
 
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    optimizer = optim.Adam(model.parameters(), lr=hyperparameters["lr"])
 
-    losses, rewards = train(dqn_type, game, env, num_frames, batch_size, train_initial, gamma, epsilon_func, model, tmodel, replay_buffer, optimizer, loss_func)
+    losses, rewards = train(env, model, tmodel, replay_buffer, optimizer, hyperparameters)
     losses, rewards = np.array(losses), np.array(rewards)
 
     # save result
